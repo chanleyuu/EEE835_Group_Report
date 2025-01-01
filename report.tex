@@ -1,0 +1,53 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[english]{babel}
+
+\input{preamble}
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+
+% Upper part of the page. The '~' is needed because \\
+% only works if a paragraph has started.
+\includegraphics[width=0.3\textwidth]{ulster-university.eps}~\\[1cm]
+
+\textsc{\LARGE Ulster University \\ \ \\ School of Engineering}\\[1.5cm]
+
+\textsc{\Large EEE835 - Embedded Systems and Sensors}\\[0.5cm]
+
+% Title
+\HRule \\[0.4cm]
+{ \huge \bfseries Project \#\\[0.4cm] }
+
+\HRule \\[1.5cm]
+\end{center}
+% Author and supervisor
+\begin{minipage}{0.4\textwidth}
+\begin{flushleft} \large
+\emph{Student name (ID):}\\
+Name \textsc{Surname} (B123456789) \\
+%Name 2 \textsc{Surname2} (B123456780) \\ % Uncomment for group report
+\end{flushleft}
+\end{minipage}
+\begin{minipage}[b]{0.4\textwidth}
+\begin{flushright} \large
+\emph{Instructor:} \\
+Gabriel  \textsc{Gon\c{c}alves Machado}
+\end{flushright}
+\end{minipage}
+
+\vfill
+
+\begin{center}
+% Bottom of the page
+{\large Belfast, \textit{Date submitted}}
+\end{center}
+
+\end{titlepage}
+
+\clearpage
+
+\bibliographystyle{ieeetr}
+\bibliography{sample}
+
+\end{document}
