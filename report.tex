@@ -47,6 +47,432 @@ Gabriel  \textsc{Gon\c{c}alves Machado}
 
 \clearpage
 
+\textsc{\LARGE Suspend and wakeup from low power: }\\[1.5cm]
+
+When a system is not needed at all times, it may be advantagous to set the resource usage of a system to minimal levels until the system is needed. Most of the system is suspeded except for the interrupt controller. This will reduce the strain that the arduino has on the robot's battery that the robot is not active.
+
+The system uses the Arduino Low Power library to suspend and wake up from sleep.
+An analog to digital conversion is done using the Arduino's built-in converter, taking inputs from A0, A1, A2, and A3.
+And the interrupt pin is 0, which is hooked up to the front microphone.
+The code for this goes as following:
+
+\begin{lstlisting}[language=C, caption=Low Power Code]
+void setup() {
+    LowPower.attachInterruptWakeup(digitalPinToInterrupt(0), wakeup,   CHANGE);
+
+    Serial.println("Going to sleep!");
+    LowPower.sleep();
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  send_commands();
+  LowPower.attachInterruptWakeup(digitalPinToInterrupt(0), wakeup,   CHANGE);
+  Serial.println("Going to sleep!");
+  LowPower.sleep();
+}
+
+void wakeup(){
+  // This code runs when the Arduino wakes up
+  Serial.println("Waking up!");
+  detachInterrupt(0);
+}
+\end{lstlisting}
+
+As you can see here, an interrupt is attached each of the analog pins we are using.
+The interrupt function is then called which continues the execution of the microcontroller's main loop function.
+Once execution of the function is complete we return the loop function and return to sleep.
+The interrupt is disables to prevent it from occuring while the main code is running.
+
+\clearpage
+
+\newpage
+
+\textsc{\LARGE Analogue reading: }\\[1.5cm]
+
+For this system, analogue data from microphones has two purposes; The first is to wake up the suspeded microcontroller, the second is to help the robot position itselft in order to take a picure
+
+As previously stated, there are four microphones on each side of the robot pictured here:
+
+/* Picture goes here */
+
+\clearpage
+
+\newpage
+
+The differnce in microphone readings is used to determine the location of the noise.
+Data from the microphones is converted to a digital format using analogue read function.
+If the front microphone has the highest reading, the robot will move forward.
+If the highest reading is from the right or left, the robot will turn either right or left.
+
+The code that does this goes as follows.
+
+\begin{lstlisting}[language=C, caption=Microphone Code]
+
+    Serial.println("START");
+    while (e > 0) {
+    // call poll() regularly to allow the library to send MQTT keep alive which
+
+
+    //Take analog data from microphones
+
+
+    // avoids being disconnected by the broker
+
+
+    mic[0] = analogRead(A0); //Back mic
+    mic[1] = analogRead(A1); //Left mic
+    mic[2] = analogRead(A2); //Right mic
+    mic[3] = analogRead(A3);  //Forward mic
+    //Actions the robot can take are as follows:
+    //Move forward
+    //turn left X degrees
+    //turn right X degrees
+
+    //Figure out which direction the robot needs to move in.
+    int highest = 1024;
+    int highest_index = 0;
+    for (int i = 0; i < 4; i++) {
+      if (mic[i] < highest){
+        highest = mic[i];
+        highest_index = i;
+      }
+    }
+
+    switch (highest_index) { //Tell pi to drive motors based on highest reading.
+      case 0:
+        Serial.print(mic[0]);
+        Serial.println();
+        Serial.print(mic[1]);
+        Serial.println();
+        Serial.print(mic[2]);
+        Serial.println();
+        Serial.print(mic[3]);
+        Serial.println();
+        Serial.println("TURN180"); //we need to turn around
+        break;
+      case 1:
+        Serial.print(mic[0]);
+        Serial.println();
+        Serial.print(mic[1]);
+        Serial.println();
+        Serial.print(mic[2]);
+        Serial.println();
+        Serial.print(mic[3]);
+        Serial.println();
+        Serial.println("TURNLEFT"); //we need to turn around
+        break;
+      case 2:
+        Serial.print(mic[0]);
+        Serial.println();
+        Serial.print(mic[1]);
+        Serial.println();
+        Serial.print(mic[2]);
+        Serial.println();
+        Serial.print(mic[3]);
+        Serial.println();
+        Serial.println("TURNRIGHT"); //we need to turn around
+        break;
+      case 3:
+        Serial.print(mic[0]);
+        Serial.println();
+        Serial.print(mic[1]);
+        Serial.println();
+        Serial.print(mic[2]);
+        Serial.println();
+        Serial.print(mic[3]);
+        Serial.println();
+        Serial.println("FORWARD"); //we need to turn around
+        break;
+    }
+
+
+\end{lstlisting}
+
+Using data from the microphones, the arduino sends instructions to the Rasperry Pi which drives the motors.
+This process repeats until a picture is taken.
+
+\clearpage
+
+\newpage
+
+\textsc{\LARGE  Wireless communication and MQTT: }\\[1.5cm]
+
+The system uses a combination of MQTT and SSH to send images from the robot to the command and control center.
+This involves two MQTT clients and a broker. The client running on the Arduino sends messages and the client on the command center recieces them.
+
+The Arduino client's code goes as following:
+
+\begin{lstlisting}[language=C, caption=Arduino Client]
+
+    Serial.print("Attempting to connect to WPA SSID: ");
+
+  Serial.println(ssid);
+
+  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
+
+    // failed, retry
+
+    Serial.print(".");
+
+    delay(5000);
+
+  }
+
+
+  Serial.println("You're connected to the network");
+
+  Serial.println();
+
+
+  Serial.print("Attempting to connect to the MQTT broker: ");
+
+  Serial.println(broker);
+
+
+  while (!mqttClient.connect(broker, port)) {
+
+    Serial.print("MQTT connection failed! Error code = ");
+
+    Serial.println(mqttClient.connectError());
+
+
+    //while (1);
+
+  }
+
+  //...........
+
+  //In the send_commands() function.
+    String recieve = Serial.readString();
+    recieve.trim();
+    if (recieve == "SEND"){
+
+      mqttClient.poll();
+
+
+      unsigned long currentMillis = millis();
+
+
+      if (currentMillis - previousMillis >= interval) {
+
+        // save the last time a message was sent
+
+        previousMillis = currentMillis;
+
+        Serial.print("Sending message to topic: ");
+
+        Serial.println(topic);
+
+        // send message, the Print interface can be used to set the message contents
+
+        mqttClient.beginMessage(topic);
+
+        mqttClient.print("SEND");
+
+        mqttClient.endMessage();
+
+        Serial.println();
+      }
+    }
+
+\end{lstlisting}
+
+First we have our Arduino connect to the local WiFi using information contained in arduino_secrets.h, then we connect to our MQTT broker running in a Docker container on our command and control machine.
+As we can see here; if the connection fails, the microcontroller will retry until it successfully connects to the broker. Once connected the robot will start send the "SEND" command to the broker if it takes a picture.
+
+We also have another MQTT client running on our control center computer, which in case is also running the broker as well.
+This client uses the following code:
+
+\begin{lstlisting}[language=Python, caption=Command Unit Code]
+import paho.mqtt.client as mqtt
+import time
+import os, sys
+
+#Set to the rasberry pi's IP on local network.
+robo_ip = "192.168.1.162"
+def on_subscribe(client, userdata, mid, reason_code_list, properties):
+    # Since we subscribed only for a single channel, reason_code_list contains
+    # a single entry
+    if reason_code_list[0].is_failure:
+        print(f"Broker rejected you subscription: {reason_code_list[0]}")
+    else:
+        print(f"Broker granted the following QoS: {reason_code_list[0].value}")
+
+def on_unsubscribe(client, userdata, mid, reason_code_list, properties):
+    # Be careful, the reason_code_list is only present in MQTTv5.
+    # In MQTTv3 it will always be empty
+    if len(reason_code_list) == 0 or not reason_code_list[0].is_failure:
+        print("unsubscribe succeeded (if SUBACK is received in MQTTv3 it success)")
+    else:
+        print(f"Broker replied with failure: {reason_code_list[0]}")
+    client.disconnect()
+
+def on_message(client, userdata, message):
+    # userdata is the structure we choose to provide, here it's a list()
+    # Make sure to run ssh-copy-id so that the file can be transferred without a password
+    print("message received  ",str(message.payload.decode("utf-8")),\
+          "topic",message.topic,"retained ",message.retain)
+    if str(message.payload.decode("utf-8"))=="SEND":
+        os.system("/bin/bash -c \"" + "scp pi4@" + robo_ip + ":~/Picture.jpg ./" + "\"")
+    if message.retain==1:
+        print("This is a retained message")
+    #userdata.append(message.payload)
+    # We only want to process 10 messages
+    # if len(userdata) >= 10:
+    #     client.unsubscribe("$SYS/#")
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    if reason_code.is_failure:
+        print(f"Failed to connect: {reason_code}. loop_forever() will retry connection")
+    else:
+        # we should always subscribe from on_connect callback to be sure
+        # our subscribed is persisted across reconnections.
+        client.subscribe("robot/image")
+        print("Subscribed!!!")
+
+mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+mqttc.on_connect = on_connect
+mqttc.on_subscribe = on_subscribe
+mqttc.on_message = on_message
+mqttc.on_unsubscribe = on_unsubscribe
+
+#mqttc.subscribe("robot/image")
+
+mqttc.user_data_set([])
+mqttc.connect("127.0.0.1")
+time.sleep(1)
+mqttc.loop_forever()
+
+\end{lstlisting}
+
+As we can see here; the the client subscribes to the "robot/image" topic and waits unit the word "SEND" appears. This is the signal that our Rasperry Pi has taken a picture.
+Once our client recieves the "SEND" command, it will use ssh to transfer the jpeg file to our control unit.
+Using the following command:
+
+scp pi4@IP ADDRESS OF RASPERRY PI GOES HERE:~/Picture.jpg ./
+
+It should be noted that an RSA key pair on the command unit and the Rasperry Pi are needed so that this command can be run without the need for a password.
+This can be accomplished by  on our control unit:
+
+ssh-keygen -t rsa -b 4096
+
+This will generate a new key pair.
+After that we run:
+
+ssh-copy-id pi4@IP ADDRESS OF RASPERRY PI GOES HERE
+
+This will add our public key to the the Pi's list of authorized keys allowing us to use the scp command without a password.
+
+\clearpage
+
+\newpage
+
+\textsc{\LARGE Rasperry Pi Code }\\[1.5cm]
+
+Finally we have the code which runs on our Rasperry Pi.
+The code of which goes as following
+
+\begin{lstlisting}[language=Python, caption=Rasperry Pi Code]
+#!/usr/bin/python
+
+import PiMotor
+import serial
+import time
+import os
+import RPi.GPIO as GPIO
+
+#Name of Individual MOTORS
+m1 = PiMotor.Motor("MOTOR1",1)
+m2 = PiMotor.Motor("MOTOR2",1)
+m3 = PiMotor.Motor("MOTOR3",1)
+m4 = PiMotor.Motor("MOTOR4",1)
+
+
+GPIO.setup(18,GPIO.OUT)
+GPIO.output(18,GPIO.HIGH)
+GPIO.output(18,GPIO.LOW)
+
+# Setup serial communication
+try:
+    ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)  # Replace '/dev/ttyUSB0' with the correct port if necessary
+    time.sleep(2)  # Give time for the connection to initialize
+except:
+    print("Serial not found...")
+finally:
+    time.sleep(0.2)
+
+
+def take_picture():
+    try:
+        i = 4
+        while i > 0:
+            if ser.in_waiting > 0:  # Check if there is data in the serial buffer
+                while True:
+
+                    data = ser.readline().decode('utf-8').strip() # Read and decode the data
+                    if data in ['FORWARD', 'TUNRLEFT', 'TURNRIGHT', 'TURN180']:  #Make sure data is a movement command
+                        print(f"Received Sound Level: {data}")  # Print the received data
+                        if data == "FORWARD":
+                            #Go forward
+                            m1.forward(100)
+                            m2.forward(100)
+                            m3.forward(100)
+                            m4.forward(100)
+                        elif data == "TURNLEFT":
+                            #Turn left
+                            m2.reverse(100)
+                            m1.forward(100)
+                            m4.reverse(100)
+                            m3.forward(100)
+                        elif data == "TURNRIGHT":
+                            #Turn right
+                            m2.forward(100)
+                            m1.reverse(100)
+                            m4.forward(100)
+                            m3.reverse(100)
+                        elif data == "TURN180":
+                            #Turn around
+                            m1.forward(100)
+                            m2.reverse(100)
+                            m3.forward(100)
+                            m4.reverse(100)
+                            time.sleep(2)
+                        i = i - 1
+                        time.sleep(2)
+                        break
+        os.system("/bin/bash -c \" libcamera-still --width 1536 --height 1024 --vflip -o Picture.jpg \"")
+    except KeyboardInterrupt:
+        print("Exiting...")
+        GPIO.cleanup()
+    finally:
+        return 1
+
+#start_serial()
+try:
+    while True:
+        if ser.in_waiting > 0:  # Check if there is data in the serial buffer
+            data = ser.readline().decode('utf-8').strip()  # Read and decode the data
+            print(f"Received Sound Level: {data}")  # Print the received data
+            if data == "START":
+                take_picture()
+
+except KeyboardInterrupt:
+    print("Exiting...")
+finally:
+    ser.close()  # Close the serial connection on exit
+
+\end{lstlisting}
+
+As we can see here, first we send a signal through the GPIO to wake up the Arduino if it is sleeping.
+Next we establish a serial connection with the Arduino
+The code for this was written by Shubham Banwal.
+
+Next we have the take_picture() function. This function reads the serial console checking for movement commands.
+After executing four movement commands, a bash command will now be executed which will take a picture using libcamera.
+
+The last section of code reads for the start command from the Arduino. In the case of a keyboard interrupt the serial connection is closed.
+
 \bibliographystyle{ieeetr}
 \bibliography{sample}
 
