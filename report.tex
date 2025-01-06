@@ -1,7 +1,6 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[english]{babel}
 
-\input{preamble}
 
 \begin{document}
 \begin{titlepage}
@@ -9,7 +8,7 @@
 
 % Upper part of the page. The '~' is needed because \\
 % only works if a paragraph has started.
-\includegraphics[width=0.3\textwidth]{ulster-university.eps}~\\[1cm]
+\includegraphics[width=0.3\textwidth]{../latex_files/ulster-university.eps}~\\[1cm]
 
 \textsc{\LARGE Ulster University \\ \ \\ School of Engineering}\\[1.5cm]
 
@@ -46,10 +45,9 @@ Gabriel  \textsc{Gon\c{c}alves Machado}
 \end{titlepage}
 
 \clearpage
+\section{ Suspend and wakeup from low power: }
 
-\textsc{\LARGE Suspend and wakeup from low power: }\\[1.5cm]
-
-When a system is not needed at all times, it may be advantagous to set the resource usage of a system to minimal levels until the system is needed. Most of the system is suspeded except for the interrupt controller. This will reduce the strain that the arduino has on the robot's battery that the robot is not active.
+When a system is not needed at all times, it may be advantageous to set the resource usage of a system to minimal levels until the system is needed. Most of the system is suspended except for the interrupt controller. This will reduce the strain that the Arduino has on the robot's battery that the robot is not active.
 
 The system uses the Arduino Low Power library to suspend and wake up from sleep.
 An analog to digital conversion is done using the Arduino's built-in converter, taking inputs from A0, A1, A2, and A3.
@@ -82,25 +80,25 @@ void wakeup(){
 As you can see here, an interrupt is attached each of the analog pins we are using.
 The interrupt function is then called which continues the execution of the microcontroller's main loop function.
 Once execution of the function is complete we return the loop function and return to sleep.
-The interrupt is disables to prevent it from occuring while the main code is running.
+The interrupt is disables to prevent it from occurring while the main code is running.
 
 \clearpage
 
 \newpage
 
-\textsc{\LARGE Analogue reading: }\\[1.5cm]
+\section{Analogue reading: }
 
-For this system, analogue data from microphones has two purposes; The first is to wake up the suspeded microcontroller, the second is to help the robot position itselft in order to take a picure
+For this system, analogue data from microphones has two purposes; The first is to wake up the suspended microcontroller, the second is to help the robot position itself in order to take a pitcure
 
 As previously stated, there are four microphones on each side of the robot pictured here:
 
-/* Picture goes here */
+\includegraphics[width=1.0\linewidth]{ ./20250104_205658.jpg }
 
 \clearpage
 
 \newpage
 
-The differnce in microphone readings is used to determine the location of the noise.
+The difference in microphone readings is used to determine the location of the noise.
 Data from the microphones is converted to a digital format using analogue read function.
 If the front microphone has the highest reading, the robot will move forward.
 If the highest reading is from the right or left, the robot will turn either right or left.
@@ -111,8 +109,6 @@ The code that does this goes as follows.
 
     Serial.println("START");
     while (e > 0) {
-    // call poll() regularly to allow the library to send MQTT keep alive which
-
 
     //Take analog data from microphones
 
@@ -120,10 +116,10 @@ The code that does this goes as follows.
     // avoids being disconnected by the broker
 
 
-    mic[0] = analogRead(A0); //Back mic
-    mic[1] = analogRead(A1); //Left mic
-    mic[2] = analogRead(A2); //Right mic
-    mic[3] = analogRead(A3);  //Forward mic
+    mic[0] = measure_mic(A0); //Back mic
+    mic[1] = measure_mic(A1); //Left mic
+    mic[2] = measure_mic(A2); //Right mic
+    mic[3] = measure_mic(A3);  //Forward mic
     //Actions the robot can take are as follows:
     //Move forward
     //turn left X degrees
@@ -187,19 +183,33 @@ The code that does this goes as follows.
     }
 
 
+
+/*Later in the code */
+
+int measure_mic(pin_size_t pin) {
+  int average = 0;
+  for (int i = 0; i < 40; i++) {
+    average += analogRead(pin);
+  }
+
+  return (average / 40);
+}
+
 \end{lstlisting}
 
-Using data from the microphones, the arduino sends instructions to the Rasperry Pi which drives the motors.
+Using data from the microphones, the Arduino sends instructions to the Rasperry Pi which drives the motors.
 This process repeats until a picture is taken.
+
+Fory measurements are taken from the mics and the average is taken to get an accurate reading from the microphone.
 
 \clearpage
 
 \newpage
 
-\textsc{\LARGE  Wireless communication and MQTT: }\\[1.5cm]
+\section{  Wireless communication and MQTT: }
 
 The system uses a combination of MQTT and SSH to send images from the robot to the command and control center.
-This involves two MQTT clients and a broker. The client running on the Arduino sends messages and the client on the command center recieces them.
+This involves two MQTT clients and a broker. The client running on the Arduino sends messages and the client on the command center receives them.
 
 The Arduino client's code goes as following:
 
@@ -277,6 +287,10 @@ The Arduino client's code goes as following:
     }
 
 \end{lstlisting}
+
+\clearpage
+
+\newpage
 
 First we have our Arduino connect to the local WiFi using information contained in arduino_secrets.h, then we connect to our MQTT broker running in a Docker container on our command and control machine.
 As we can see here; if the connection fails, the microcontroller will retry until it successfully connects to the broker. Once connected the robot will start send the "SEND" command to the broker if it takes a picture.
@@ -368,7 +382,7 @@ This will add our public key to the the Pi's list of authorized keys allowing us
 
 \newpage
 
-\textsc{\LARGE Rasperry Pi Code }\\[1.5cm]
+\section{ Rasperry Pi Code }
 
 Finally we have the code which runs on our Rasperry Pi.
 The code of which goes as following
@@ -456,6 +470,7 @@ try:
             print(f"Received Sound Level: {data}")  # Print the received data
             if data == "START":
                 take_picture()
+                ser.write(b'SEND')
 
 except KeyboardInterrupt:
     print("Exiting...")
@@ -472,6 +487,21 @@ Next we have the take_picture() function. This function reads the serial console
 After executing four movement commands, a bash command will now be executed which will take a picture using libcamera.
 
 The last section of code reads for the start command from the Arduino. In the case of a keyboard interrupt the serial connection is closed.
+
+\section{Conclusion}
+
+Using these different components, we have been able to combine them all into a functional and working robot.
+We have combined:
+\begin{itemize}
+    \item Analog to digital conversion by using microphones to detect a position of a sound.
+    \item Wireless communication by connecting to a MQTT broker.
+    \item And using the Arduino Low Power library to suspend the microcontroller to a low power state.
+\end{itemize}
+
+We did however experience some difficulties. The microphones were picking up sounds from the wheels, and interferrence from other wires were also skewing readings. However we were able to create something that does accomplish what is set out to do.
+
+All in all, we have accomplished these goals, and in process, created a functional and working robot.
+
 
 \bibliographystyle{ieeetr}
 \bibliography{sample}
